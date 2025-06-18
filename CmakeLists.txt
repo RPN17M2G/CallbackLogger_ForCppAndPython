@@ -1,0 +1,28 @@
+cmake_minimum_required(VERSION 3.14)
+project(LogInfrastructure LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+include_directories(include)
+
+
+add_library(CallbackLogger STATIC
+        src/CallbackLogger.cpp
+        src/LoggingFunctionsExamples.cpp
+)
+add_subdirectory(thirdparty/pybind11)
+target_include_directories(CallbackLogger PUBLIC include)
+
+pybind11_add_module(pycallbacklogger bindings/python_bindings.cpp src/CallbackLogger.cpp src/LoggingFunctionsExamples.cpp)
+target_include_directories(pycallbacklogger PRIVATE include)
+
+install(TARGETS pycallbacklogger
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
+
+add_executable(cpp_example Examples/cpp_example.cpp)
+target_link_libraries(cpp_example PRIVATE CallbackLogger)
+target_include_directories(cpp_example PRIVATE include)
