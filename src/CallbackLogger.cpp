@@ -29,7 +29,7 @@ CallbackLogger::CallbackLogger(size_t thread_count)
     if (thread_count == 0) thread_count = DEFAULT_THREAD_COUNT;
     m_stopping = false;
     for (size_t worker_count = 0; worker_count < thread_count; ++worker_count)
-        m_workers.emplace_back(&CallbackLogger::worker_thread, this);
+        m_workers.emplace_back(&CallbackLogger::_worker_thread, this);
 }
 
 CallbackLogger::~CallbackLogger()
@@ -138,7 +138,7 @@ void CallbackLogger::unregister_file_callback(uint32_t handle)
 void CallbackLogger::log(const Severity severity, const Component component, const std::string& message,
                          const std::string& file, const uint32_t line)
 {
-    const std::string timestamp = get_current_timestamp();
+    const std::string timestamp = _get_current_timestamp();
     LogEntry entry{severity, component, message, file, line, timestamp};
 
     // Copy callbacks for enabling registration while logging
@@ -158,7 +158,7 @@ void CallbackLogger::log(const Severity severity, const Component component, con
 
         for (FileCallbackFilterPtr& callback : file_callbacks)
         {
-            if (is_matching_callback_filter(callback->component_min_severity, severity, component) && (callback->file_stream.is_open()))
+            if (_is_matching_callback_filter(callback->component_min_severity, severity, component) && (callback->file_stream.is_open()))
             {
                 m_task_queue.emplace([entry, callback]() mutable {
                     constexpr const char* ERROR_PREFIX = "[!] ";
@@ -174,7 +174,7 @@ void CallbackLogger::log(const Severity severity, const Component component, con
 
         for (const FunctionCallbackFilterPtr& callback : function_callbacks)
         {
-            if (is_matching_callback_filter(callback->component_min_severity, severity, component))
+            if (_is_matching_callback_filter(callback->component_min_severity, severity, component))
             {
                 m_task_queue.emplace([callback_function = callback->callback_function, entry]() {
                     callback_function(entry);
@@ -185,7 +185,7 @@ void CallbackLogger::log(const Severity severity, const Component component, con
     m_queue_condition.notify_all();
 }
 
-void CallbackLogger::worker_thread()
+void CallbackLogger::_worker_thread()
 {
     while (true) {
         Task task;
@@ -222,7 +222,7 @@ void CallbackLogger::worker_thread()
     }
 }
 
-bool CallbackLogger::is_matching_callback_filter(const std::unordered_map<Component, Severity>& filter,
+bool CallbackLogger::_is_matching_callback_filter(const std::unordered_map<Component, Severity>& filter,
                                   const Severity severity, const Component component) const
 {
     if (filter.empty())
@@ -233,7 +233,7 @@ bool CallbackLogger::is_matching_callback_filter(const std::unordered_map<Compon
     return false;
 }
 
-std::string CallbackLogger::get_current_timestamp() const
+std::string CallbackLogger::_get_current_timestamp() const
 {
     constexpr size_t ms_width = 3;
     constexpr size_t to_milliseconds = 1000;

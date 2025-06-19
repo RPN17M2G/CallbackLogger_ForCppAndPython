@@ -205,19 +205,19 @@ private:
      * @param component The component of the log entry.
      * @return True if the entry matches the filter, false otherwise.
      */
-    bool is_matching_callback_filter(const std::unordered_map<Component, Severity>& filter,
+    bool _is_matching_callback_filter(const std::unordered_map<Component, Severity>& filter,
                        Severity severity, Component component) const;
 
     /**
      * @brief Gets the current timestamp as a string.
      * @return The current timestamp.
      */
-    std::string get_current_timestamp() const;
+    std::string _get_current_timestamp() const;
 
     /**
      * @brief Worker thread function that processes log tasks from the queue.
      */
-    void worker_thread();
+    void _worker_thread();
 
     std::unordered_map<uint32_t, FunctionCallbackFilterPtr> m_function_callbacks;
     std::unordered_map<uint32_t, FileCallbackFilterPtr> m_file_callbacks;
