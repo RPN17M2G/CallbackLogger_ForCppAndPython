@@ -25,7 +25,7 @@ using FileCallbackFilterPtr = std::shared_ptr<FileCallBackFilter>;
  */
 struct FunctionCallbackFilter
 {
-    const LogCallback& callback_function;
+    const LogCallback callback_function;
     std::unordered_map<ComponentEnumEntry, Severity, ComponentEnumEntryHasher> component_min_severity;
 };
 using FunctionCallbackFilterPtr = std::shared_ptr<FunctionCallbackFilter>;

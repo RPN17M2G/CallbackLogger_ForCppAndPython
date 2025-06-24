@@ -46,7 +46,7 @@ uint32_t CallbackLogger::register_function_callback(
     const std::set<ComponentEnumEntry>& component_filter)
 {
     std::unordered_map<ComponentEnumEntry, Severity, ComponentEnumEntryHasher> filter;
-    for (const auto& component : component_filter)
+    for (const ComponentEnumEntry& component : component_filter)
         filter[component] = Severity::Uninitialized;
     return register_function_callback(callback, filter);
 }
@@ -82,7 +82,7 @@ uint32_t CallbackLogger::register_file_callback(
     const std::set<ComponentEnumEntry>& component_filter)
 {
     std::unordered_map<ComponentEnumEntry, Severity, ComponentEnumEntryHasher> filter;
-    for (const auto& component : component_filter)
+    for (const ComponentEnumEntry& component : component_filter)
         filter[component] = Severity::Uninitialized;
     return register_file_callback(filename, filter);
 }
@@ -123,11 +123,12 @@ void CallbackLogger::unregister_file_callback(uint32_t handle)
     m_file_callbacks.erase(handle);
 }
 
-void CallbackLogger::log(const Severity severity, const ComponentEnumEntry component, const std::string& message,
+void CallbackLogger::log(const Severity severity, const ComponentEnumEntry& component, const std::string& message,
                          const std::string& file, const uint32_t line)
 {
-    LogEntry entry{severity, component, message, file, line, _get_current_timestamp()};
-    if (m_single_threaded) {
+    const LogEntry entry{severity, component, message, file, line, _get_current_timestamp()};
+    if (m_single_threaded)
+    {
         _single_threaded_log(entry);
     } else {
         _async_log(entry);
@@ -179,7 +180,18 @@ void CallbackLogger::_single_threaded_log(const LogEntry& entry)
     {
         if (_is_matching_callback_filter(callback.second->component_min_severity, entry.severity, entry.component))
         {
-            file_log_callback(entry, callback.second->file_path);
+            try
+            {
+                 file_log_callback(entry, callback.second->file_path);
+            }
+            catch (const std::exception& e)
+            {
+                std::cerr << "[!] Exception while handling file callback: " << e.what() << std::endl;
+            }
+            catch (...)
+            {
+                std::cerr << "[!] Unknown exception while handling file callback." << std::endl;
+            }
         }
     }
 
@@ -187,7 +199,18 @@ void CallbackLogger::_single_threaded_log(const LogEntry& entry)
     {
         if (_is_matching_callback_filter(callback.second->component_min_severity, entry.severity, entry.component))
         {
-            callback.second->callback_function(entry);
+            try
+            {
+                callback.second->callback_function(entry);
+            }
+            catch (const std::exception& e)
+            {
+                std::cerr << "[!] Exception while handling function callback: " << e.what() << std::endl;
+            }
+            catch (...)
+            {
+                std::cerr << "[!] Unknown exception while handling function callback." << std::endl;
+            }
         }
     }
 }
@@ -245,9 +268,9 @@ std::string CallbackLogger::_get_current_timestamp() const
     constexpr size_t ms_width = 3;
     constexpr size_t to_milliseconds = 1000;
 
-    const auto now = std::chrono::system_clock::now();
+    const std::chrono::time_point now = std::chrono::system_clock::now();
     const std::time_t time_t_now = std::chrono::system_clock::to_time_t(now);
-    const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % to_milliseconds;
+    const std::chrono::duration ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % to_milliseconds;
     struct tm timeinfo;
 
     std::ostringstream string_stream;

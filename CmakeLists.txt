@@ -8,8 +8,8 @@ include_directories(include)
 
 # Recursively collect all source and header files
 file(GLOB_RECURSE SRC_FILES src/*.cpp)
-file(GLOB_RECURSE HEADER_FILES include/*.h)
-file(GLOB_RECURSE BINDINGS_FILES bindings/*.cpp)
+file(GLOB_RECURSE HEADER_FILES include/*.hpp include/*.h include/*.hpp include/*.hh include/*.hxx)
+file(GLOB_RECURSE BINDINGS_FILES bindings/*.cpp bindings/*.hpp)
 file(GLOB_RECURSE EXAMPLES_FILES Examples/*.cpp)
 
 add_subdirectory(thirdparty/pybind11)

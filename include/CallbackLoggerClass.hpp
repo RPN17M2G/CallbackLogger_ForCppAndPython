@@ -254,7 +254,7 @@ public:
      * @param file The source file where the log was generated.
      * @param line The line number in the source file.
      */
-    void log(Severity severity, ComponentEnumEntry component, const std::string& message,
+    void log(Severity severity, const ComponentEnumEntry& component, const std::string& message,
              const std::string& file, uint32_t line);
 
 private:
