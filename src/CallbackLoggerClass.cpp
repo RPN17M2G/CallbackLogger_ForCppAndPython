@@ -1,38 +1,26 @@
-#include "CallbackLogger.hpp"
-
-std::string to_string(const Severity severity)
-{
-    constexpr std::array<const char*, 5> SeverityToStringMap = {
-        "Debug", "Info", "Warning", "Error", "Fatal"
-    };
-
-    const uint32_t index = static_cast<uint32_t>(severity);
-    if (index < SeverityToStringMap.size())
-        return SeverityToStringMap[index];
-    return "UnknownSeverity";
-}
-
-std::string to_string(const Component component)
-{
-    constexpr std::array<const char*, 3> ComponentToStringMap = {
-        "System", "Module", "PacketProcessor"
-    };
-
-    const uint32_t index = static_cast<uint32_t>(component);
-    if (index < ComponentToStringMap.size())
-        return ComponentToStringMap[index];
-    return "UnknownComponent";
-}
+#include "CallbackLoggerClass.hpp"
 
 CallbackLogger::CallbackLogger(size_t thread_count)
 {
-    if (thread_count == 0) thread_count = DEFAULT_THREAD_COUNT;
+    if (thread_count == 0)
+    {
+        m_single_threaded = true;
+    }
+    else
+    {
+        m_single_threaded = false;
+        for (size_t worker_count = 0; worker_count < thread_count; ++worker_count)
+            m_workers.emplace_back(&CallbackLogger::_worker_thread, this);
+    }
     m_stopping = false;
-    for (size_t worker_count = 0; worker_count < thread_count; ++worker_count)
-        m_workers.emplace_back(&CallbackLogger::_worker_thread, this);
 }
 
 CallbackLogger::~CallbackLogger()
+{
+    shutdown();
+}
+
+void CallbackLogger::shutdown()
 {
     {
         std::unique_lock<std::mutex> lock(m_queue_mutex);
@@ -45,7 +33,7 @@ CallbackLogger::~CallbackLogger()
 
 uint32_t CallbackLogger::register_function_callback(
     const LogCallback& callback,
-    const std::unordered_map<Component, Severity>& filter)
+    const std::unordered_map<ComponentEnumEntry, Severity, ComponentEnumEntryHasher>& filter)
 {
     std::lock_guard<std::mutex> lock(m_register_mutex);
     uint32_t handle = m_next_callback_handle++;
@@ -55,9 +43,9 @@ uint32_t CallbackLogger::register_function_callback(
 
 uint32_t CallbackLogger::register_function_callback(
     const LogCallback& callback,
-    const std::set<Component>& component_filter)
+    const std::set<ComponentEnumEntry>& component_filter)
 {
-    std::unordered_map<Component, Severity> filter;
+    std::unordered_map<ComponentEnumEntry, Severity, ComponentEnumEntryHasher> filter;
     for (const auto& component : component_filter)
         filter[component] = Severity::Uninitialized;
     return register_function_callback(callback, filter);
@@ -67,33 +55,33 @@ uint32_t CallbackLogger::register_function_callback(
     const LogCallback& callback,
     const Severity min_severity)
 {
-    std::unordered_map<Component, Severity> filter;
-    for (uint32_t component = 0; component < static_cast<uint32_t>(Component::COMPONENT_COUNT); ++component)
-        filter[static_cast<Component>(component)] = min_severity;
+    // This assumes you have a way to enumerate all possible ComponentEnumEntry values.
+    // For demonstration, this is left empty.
+    std::unordered_map<ComponentEnumEntry, Severity, ComponentEnumEntryHasher> filter;
     return register_function_callback(callback, filter);
 }
 
-uint32_t CallbackLogger::register_function_callback(const LogCallback& callback, const Component component)
+uint32_t CallbackLogger::register_function_callback(const LogCallback& callback, const ComponentEnumEntry component)
 {
-    std::set<Component> component_set{component};
+    std::set<ComponentEnumEntry> component_set{component};
     return register_function_callback(callback, component_set);
 }
 
 uint32_t CallbackLogger::register_file_callback(
     const std::string& filename,
-    const std::unordered_map<Component, Severity>& filter)
+    const std::unordered_map<ComponentEnumEntry, Severity, ComponentEnumEntryHasher>& filter)
 {
     std::lock_guard<std::mutex> lock(m_register_mutex);
     uint32_t handle = m_next_callback_handle++;
-    m_file_callbacks[handle] = std::make_shared<FileCallbackFilter>(FileCallbackFilter{std::ofstream(filename, std::ios::app), filter});
+    m_file_callbacks[handle] = std::make_shared<FileCallBackFilter>(FileCallBackFilter{filename, filter});
     return handle;
 }
 
 uint32_t CallbackLogger::register_file_callback(
     const std::string& filename,
-    const std::set<Component>& component_filter)
+    const std::set<ComponentEnumEntry>& component_filter)
 {
-    std::unordered_map<Component, Severity> filter;
+    std::unordered_map<ComponentEnumEntry, Severity, ComponentEnumEntryHasher> filter;
     for (const auto& component : component_filter)
         filter[component] = Severity::Uninitialized;
     return register_file_callback(filename, filter);
@@ -103,15 +91,15 @@ uint32_t CallbackLogger::register_file_callback(
     const std::string& filename,
     const Severity min_severity)
 {
-    std::unordered_map<Component, Severity> filter;
-    for (uint32_t component = 0; component < static_cast<uint32_t>(Component::COMPONENT_COUNT); ++component)
-        filter[static_cast<Component>(component)] = min_severity;
+    // This assumes you have a way to enumerate all possible ComponentEnumEntry values.
+    // For demonstration, this is left empty.
+    std::unordered_map<ComponentEnumEntry, Severity, ComponentEnumEntryHasher> filter;
     return register_file_callback(filename, filter);
 }
 
-uint32_t CallbackLogger::register_file_callback(const std::string& filename, const Component component)
+uint32_t CallbackLogger::register_file_callback(const std::string& filename, const ComponentEnumEntry component)
 {
-    std::set<Component> component_set{component};
+    std::set<ComponentEnumEntry> component_set{component};
     return register_file_callback(filename, component_set);
 }
 
@@ -128,20 +116,26 @@ void CallbackLogger::unregister_function_callback(uint32_t handle)
 void CallbackLogger::unregister_file_callback(uint32_t handle)
 {
     std::lock_guard<std::mutex> lock(m_register_mutex);
-    if (m_function_callbacks.find(handle) == m_function_callbacks.end())
+    if (m_file_callbacks.find(handle) == m_file_callbacks.end())
     {
         throw std::runtime_error("Callback handle not found: " + std::to_string(handle));
     }
     m_file_callbacks.erase(handle);
 }
 
-void CallbackLogger::log(const Severity severity, const Component component, const std::string& message,
+void CallbackLogger::log(const Severity severity, const ComponentEnumEntry component, const std::string& message,
                          const std::string& file, const uint32_t line)
 {
-    const std::string timestamp = _get_current_timestamp();
-    LogEntry entry{severity, component, message, file, line, timestamp};
+    LogEntry entry{severity, component, message, file, line, _get_current_timestamp()};
+    if (m_single_threaded) {
+        _single_threaded_log(entry);
+    } else {
+        _async_log(entry);
+    }
+}
 
-    // Copy callbacks for enabling registration while logging
+void CallbackLogger::_async_log(const LogEntry& entry)
+{
     std::vector<FunctionCallbackFilterPtr> function_callbacks;
     std::vector<FileCallbackFilterPtr> file_callbacks;
     {
@@ -158,31 +152,44 @@ void CallbackLogger::log(const Severity severity, const Component component, con
 
         for (FileCallbackFilterPtr& callback : file_callbacks)
         {
-            if (_is_matching_callback_filter(callback->component_min_severity, severity, component) && (callback->file_stream.is_open()))
+            if (_is_matching_callback_filter(callback->component_min_severity, entry.severity, entry.component))
             {
                 m_task_queue.emplace([entry, callback]() mutable {
-                    constexpr const char* ERROR_PREFIX = "[!] ";
-                    constexpr const char* INFO_PREFIX = "[*] ";
-
-                    callback->file_stream << ((entry.severity >= Severity::Warning) ? ERROR_PREFIX : INFO_PREFIX)
-                        << "[" << entry.timestamp << "] [" << to_string(entry.severity) << "] "
-                        << to_string(entry.component) << " (" << entry.file << ":" << entry.line << "): "
-                        << entry.message << std::endl;
+                    file_log_callback(entry, callback->file_path);
                 });
             }
         }
 
         for (const FunctionCallbackFilterPtr& callback : function_callbacks)
         {
-            if (_is_matching_callback_filter(callback->component_min_severity, severity, component))
+            if (_is_matching_callback_filter(callback->component_min_severity, entry.severity, entry.component))
             {
-                m_task_queue.emplace([callback_function = callback->callback_function, entry]() {
-                    callback_function(entry);
+                m_task_queue.emplace([callback, entry]() {
+                    callback->callback_function(entry);
                 });
             }
         }
     }
     m_queue_condition.notify_all();
+}
+
+void CallbackLogger::_single_threaded_log(const LogEntry& entry)
+{
+    for (const std::pair<const uint32_t, FileCallbackFilterPtr>& callback : m_file_callbacks)
+    {
+        if (_is_matching_callback_filter(callback.second->component_min_severity, entry.severity, entry.component))
+        {
+            file_log_callback(entry, callback.second->file_path);
+        }
+    }
+
+    for (const std::pair<const uint32_t, FunctionCallbackFilterPtr>& callback : m_function_callbacks)
+    {
+        if (_is_matching_callback_filter(callback.second->component_min_severity, entry.severity, entry.component))
+        {
+            callback.second->callback_function(entry);
+        }
+    }
 }
 
 void CallbackLogger::_worker_thread()
@@ -222,8 +229,8 @@ void CallbackLogger::_worker_thread()
     }
 }
 
-bool CallbackLogger::_is_matching_callback_filter(const std::unordered_map<Component, Severity>& filter,
-                                  const Severity severity, const Component component) const
+bool CallbackLogger::_is_matching_callback_filter(const std::unordered_map<ComponentEnumEntry, Severity, ComponentEnumEntryHasher>& filter,
+                                  const Severity severity, const ComponentEnumEntry component) const
 {
     if (filter.empty())
         return true;
@@ -241,9 +248,11 @@ std::string CallbackLogger::_get_current_timestamp() const
     const auto now = std::chrono::system_clock::now();
     const std::time_t time_t_now = std::chrono::system_clock::to_time_t(now);
     const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % to_milliseconds;
+    struct tm timeinfo;
 
     std::ostringstream string_stream;
-    string_stream << std::put_time(std::localtime(&time_t_now), "%Y-%m-%d %H:%M:%S")
+    (void)localtime_s(&timeinfo, &time_t_now);
+    string_stream << std::put_time(&timeinfo, "%Y-%m-%d %H:%M:%S")
         << "." << std::setfill('0') << std::setw(ms_width) << ms.count();
     return string_stream.str();
 }
