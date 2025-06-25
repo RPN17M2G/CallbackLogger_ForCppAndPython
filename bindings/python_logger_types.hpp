@@ -7,6 +7,8 @@
 
 namespace py = pybind11;
 
+static constexpr const char* MODULE_CLASS_DELIMITER = "#";
+
 /**
  * @brief Converts a Python enum object to a ComponentEnumEntry.
  *
