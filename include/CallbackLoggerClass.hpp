@@ -266,8 +266,9 @@ private:
      * @param component The component of the log entry.
      * @return True if the entry matches the filter, false otherwise.
      */
-    bool _is_matching_callback_filter(const std::unordered_map<ComponentEnumEntry, Severity, ComponentEnumEntryHasher>& filter,
-                       Severity severity, ComponentEnumEntry component) const;
+    bool _is_matching_callback_filter(
+        const std::variant<std::unordered_map<ComponentEnumEntry, Severity, ComponentEnumEntryHasher>, Severity>& filter,
+        const Severity severity, const ComponentEnumEntry component) const;
 
     /**
      * @brief Gets the current timestamp as a string.

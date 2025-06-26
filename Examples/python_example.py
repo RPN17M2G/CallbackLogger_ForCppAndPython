@@ -3,6 +3,7 @@ from colorama import Fore, Style, init
 from inspect import currentframe, getframeinfo
 from enum import Enum
 
+
 init(autoreset=True)
 
 # Define a Python enum to use with the logger
@@ -26,9 +27,27 @@ def debug_callback(entry):
 def all_callback(entry):
     print(f"{Fore.MAGENTA}ALL: {entry.message} in {entry.component} at {entry.file}:{entry.line}{Style.RESET_ALL}")
 
+
+
+
+def test_register_function_callback_info_message_received(logger):
+    received_entries = []
+    def callback(entry):
+        print(entry.message)
+        received_entries.append((entry.severity, entry.component, entry.message))
+
+
+    logger.register_function_callback(callback, pycallbacklogger.Severity.Info)
+
+    logger.log(pycallbacklogger.Severity.Info, PyComponent.S, "test message", "file.cpp", 42)
+
+    print(len(received_entries))
+    assert len(received_entries) == 1
+    assert received_entries[0][2] == "test message"
+
 if __name__ == "__main__":
     logger = pycallbacklogger.CallbackLogger()
-
+    test_register_function_callback_info_message_received(logger)
     # Register callbacks for different severities and components using the Python enum
     logger.register_function_callback(console_callback, pycallbacklogger.Severity.Info)
     logger.register_function_callback(warning_callback, pycallbacklogger.Severity.Warning)

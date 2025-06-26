@@ -37,7 +37,8 @@ uint32_t CallbackLogger::register_function_callback(
 {
     std::lock_guard<std::mutex> lock(m_register_mutex);
     uint32_t handle = m_next_callback_handle++;
-    m_function_callbacks[handle] = std::make_shared<FunctionCallbackFilter>(FunctionCallbackFilter{callback, filter});
+    m_function_callbacks[handle] = std::make_shared<FunctionCallbackFilter>(
+        FunctionCallbackFilter{callback, filter});
     return handle;
 }
 
@@ -55,10 +56,11 @@ uint32_t CallbackLogger::register_function_callback(
     const LogCallback& callback,
     const Severity min_severity)
 {
-    // This assumes you have a way to enumerate all possible ComponentEnumEntry values.
-    // For demonstration, this is left empty.
-    std::unordered_map<ComponentEnumEntry, Severity, ComponentEnumEntryHasher> filter;
-    return register_function_callback(callback, filter);
+    std::lock_guard<std::mutex> lock(m_register_mutex);
+    uint32_t handle = m_next_callback_handle++;
+    m_function_callbacks[handle] = std::make_shared<FunctionCallbackFilter>(
+        FunctionCallbackFilter{callback, min_severity});
+    return handle;
 }
 
 uint32_t CallbackLogger::register_function_callback(const LogCallback& callback, const ComponentEnumEntry component)
@@ -73,7 +75,8 @@ uint32_t CallbackLogger::register_file_callback(
 {
     std::lock_guard<std::mutex> lock(m_register_mutex);
     uint32_t handle = m_next_callback_handle++;
-    m_file_callbacks[handle] = std::make_shared<FileCallBackFilter>(FileCallBackFilter{filename, filter});
+    m_file_callbacks[handle] = std::make_shared<FileCallBackFilter>(
+        FileCallBackFilter{filename, filter});
     return handle;
 }
 
@@ -91,10 +94,11 @@ uint32_t CallbackLogger::register_file_callback(
     const std::string& filename,
     const Severity min_severity)
 {
-    // This assumes you have a way to enumerate all possible ComponentEnumEntry values.
-    // For demonstration, this is left empty.
-    std::unordered_map<ComponentEnumEntry, Severity, ComponentEnumEntryHasher> filter;
-    return register_file_callback(filename, filter);
+    std::lock_guard<std::mutex> lock(m_register_mutex);
+    uint32_t handle = m_next_callback_handle++;
+    m_file_callbacks[handle] = std::make_shared<FileCallBackFilter>(
+        FileCallBackFilter{filename, min_severity});
+    return handle;
 }
 
 uint32_t CallbackLogger::register_file_callback(const std::string& filename, const ComponentEnumEntry component)
@@ -135,6 +139,24 @@ void CallbackLogger::log(const Severity severity, const ComponentEnumEntry& comp
     }
 }
 
+bool CallbackLogger::_is_matching_callback_filter(
+    const std::variant<std::unordered_map<ComponentEnumEntry, Severity, ComponentEnumEntryHasher>, Severity>& filter,
+    const Severity severity, const ComponentEnumEntry component) const
+{
+    if (std::holds_alternative<Severity>(filter))
+    {
+        return severity >= std::get<Severity>(filter);
+    }
+    const std::unordered_map<ComponentEnumEntry, Severity, ComponentEnumEntryHasher>& map = std::get<std::unordered_map<ComponentEnumEntry, Severity, ComponentEnumEntryHasher>>(filter);
+    if (map.empty())
+        return true;
+
+    auto component_iterator = map.find(component);
+    if (component_iterator != map.end())
+        return severity >= component_iterator->second;
+    return false;
+}
+
 void CallbackLogger::_async_log(const LogEntry& entry)
 {
     std::vector<FunctionCallbackFilterPtr> function_callbacks;
@@ -153,7 +175,7 @@ void CallbackLogger::_async_log(const LogEntry& entry)
 
         for (FileCallbackFilterPtr& callback : file_callbacks)
         {
-            if (_is_matching_callback_filter(callback->component_min_severity, entry.severity, entry.component))
+            if (_is_matching_callback_filter(callback->filter, entry.severity, entry.component))
             {
                 m_task_queue.emplace([entry, callback]() mutable {
                     file_log_callback(entry, callback->file_path);
@@ -163,7 +185,7 @@ void CallbackLogger::_async_log(const LogEntry& entry)
 
         for (const FunctionCallbackFilterPtr& callback : function_callbacks)
         {
-            if (_is_matching_callback_filter(callback->component_min_severity, entry.severity, entry.component))
+            if (_is_matching_callback_filter(callback->filter, entry.severity, entry.component))
             {
                 m_task_queue.emplace([callback, entry]() {
                     callback->callback_function(entry);
@@ -178,7 +200,7 @@ void CallbackLogger::_single_threaded_log(const LogEntry& entry)
 {
     for (const std::pair<const uint32_t, FileCallbackFilterPtr>& callback : m_file_callbacks)
     {
-        if (_is_matching_callback_filter(callback.second->component_min_severity, entry.severity, entry.component))
+        if (_is_matching_callback_filter(callback.second->filter, entry.severity, entry.component))
         {
             try
             {
@@ -197,7 +219,7 @@ void CallbackLogger::_single_threaded_log(const LogEntry& entry)
 
     for (const std::pair<const uint32_t, FunctionCallbackFilterPtr>& callback : m_function_callbacks)
     {
-        if (_is_matching_callback_filter(callback.second->component_min_severity, entry.severity, entry.component))
+        if (_is_matching_callback_filter(callback.second->filter, entry.severity, entry.component))
         {
             try
             {
@@ -250,17 +272,6 @@ void CallbackLogger::_worker_thread()
             }
         }
     }
-}
-
-bool CallbackLogger::_is_matching_callback_filter(const std::unordered_map<ComponentEnumEntry, Severity, ComponentEnumEntryHasher>& filter,
-                                  const Severity severity, const ComponentEnumEntry component) const
-{
-    if (filter.empty())
-        return true;
-    auto it = filter.find(component);
-    if (it != filter.end())
-        return severity >= it->second;
-    return false;
 }
 
 std::string CallbackLogger::_get_current_timestamp() const

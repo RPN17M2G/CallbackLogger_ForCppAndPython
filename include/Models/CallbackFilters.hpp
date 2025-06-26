@@ -3,6 +3,7 @@
 #include <string>
 #include <unordered_map>
 #include <memory>
+#include <variant>
 
 #include "ComponentEnumEntry.hpp"
 #include "Severity.hpp"
@@ -16,7 +17,10 @@ using LogCallback = std::function<void(const LogEntry&)>;
 struct FileCallBackFilter
 {
     std::string file_path;
-    std::unordered_map<ComponentEnumEntry, Severity, ComponentEnumEntryHasher> component_min_severity;
+    std::variant<
+        std::unordered_map<ComponentEnumEntry, Severity, ComponentEnumEntryHasher>,
+        Severity
+    > filter;
 };
 using FileCallbackFilterPtr = std::shared_ptr<FileCallBackFilter>;
 
@@ -26,6 +30,10 @@ using FileCallbackFilterPtr = std::shared_ptr<FileCallBackFilter>;
 struct FunctionCallbackFilter
 {
     const LogCallback callback_function;
-    std::unordered_map<ComponentEnumEntry, Severity, ComponentEnumEntryHasher> component_min_severity;
+    std::variant<
+        std::unordered_map<ComponentEnumEntry, Severity, ComponentEnumEntryHasher>,
+        Severity
+    > filter;
 };
 using FunctionCallbackFilterPtr = std::shared_ptr<FunctionCallbackFilter>;
+
