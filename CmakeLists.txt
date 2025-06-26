@@ -35,3 +35,15 @@ foreach(EXAMPLE_FILE ${EXAMPLES_FILES})
     target_link_libraries(${EXAMPLE_NAME} PRIVATE CallbackLogger)
     target_include_directories(${EXAMPLE_NAME} PRIVATE include)
 endforeach()
+
+add_subdirectory(thirdparty/googletest)
+
+# Add tests
+enable_testing()
+file(GLOB_RECURSE TEST_SOURCES tests/test_cppcallbacklogger.cpp)
+add_executable(CallbackLoggerTests ${TEST_SOURCES})
+target_link_libraries(CallbackLoggerTests PRIVATE CallbackLogger gtest gtest_main)
+target_include_directories(CallbackLoggerTests PRIVATE include)
+
+include(GoogleTest)
+gtest_discover_tests(CallbackLoggerTests)
