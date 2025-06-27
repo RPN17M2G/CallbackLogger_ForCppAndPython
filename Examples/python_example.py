@@ -1,22 +1,24 @@
 import pycallbacklogger
 from colorama import Fore, Style, init
-from inspect import currentframe, getframeinfo
 from enum import Enum
+from inspect import currentframe, getframeinfo
 
-
+# Initialize colorama for colored output in the terminal
 init(autoreset=True)
 
-# Define a Python enum to use with the logger
-class PyComponent(Enum):
-    S = 0
-    M = 1
-    P = 2
+# Define a custom component enum for demonstration
+class MyComponent(Enum):
+    NETWORK = 0
+    DATABASE = 1
+    UI = 2
 
-def console_callback(entry):
-    print(f"[{entry.timestamp}] [{(entry.severity)}] {entry.component}: {entry.message} ({entry.file}:{entry.line})")
+# --- Callback functions for demonstration ---
+
+def print_callback(entry):
+    print(f"[{entry.timestamp}] [{entry.severity.name}] {entry.component.name}: {entry.message} ({entry.file}:{entry.line})")
 
 def warning_callback(entry):
-    print(f"{Fore.YELLOW}WARNING: {entry.message} in {entry.component}{Style.RESET_ALL}")
+    print(f"{Fore.YELLOW}WARNING: {entry.message} in {entry.component.name}{Style.RESET_ALL}")
 
 def error_callback(entry):
     print(f"{Fore.RED}ERROR: {entry.message} ({entry.file}:{entry.line}){Style.RESET_ALL}")
@@ -25,49 +27,38 @@ def debug_callback(entry):
     print(f"{Fore.CYAN}DEBUG: {entry.message}{Style.RESET_ALL}")
 
 def all_callback(entry):
-    print(f"{Fore.MAGENTA}ALL: {entry.message} in {entry.component} at {entry.file}:{entry.line}{Style.RESET_ALL}")
+    print(f"{Fore.MAGENTA}ALL: {entry.message} in {entry.component.name} at {entry.file}:{entry.line}{Style.RESET_ALL}")
 
+# --- Example usage ---
 
+def main():
+    logger = pycallbacklogger.CallbackLogger()
 
+    # Register callbacks for different severities and components
+    logger.register_function_callback(print_callback, pycallbacklogger.Severity.Info)
+    logger.register_function_callback(warning_callback, pycallbacklogger.Severity.Warning)
+    logger.register_function_callback(error_callback, {MyComponent.DATABASE: pycallbacklogger.Severity.Error})
+    logger.register_function_callback(debug_callback, [MyComponent.UI])
+    logger.register_function_callback(all_callback)  # No filter: receives all
 
-def test_register_function_callback_info_message_received(logger):
-    received_entries = []
-    def callback(entry):
-        print(entry.message)
-        received_entries.append((entry.severity, entry.component, entry.message))
+    # Register file callbacks
+    logger.register_file_callback('all_logs.log')
+    logger.register_file_callback('db_warnings.log', {MyComponent.DATABASE: pycallbacklogger.Severity.Warning})
 
+    # Helper to log with file/line info
+    def log_with_location(severity, component, message):
+        frameinfo = getframeinfo(currentframe())
+        logger.log(severity, component, message, frameinfo.filename, frameinfo.lineno)
 
-    logger.register_function_callback(callback, pycallbacklogger.Severity.Info)
+    # Log messages with various severities and components
+    log_with_location(pycallbacklogger.Severity.Info, MyComponent.NETWORK, "Network initialized")
+    log_with_location(pycallbacklogger.Severity.Warning, MyComponent.UI, "UI lag detected")
+    log_with_location(pycallbacklogger.Severity.Error, MyComponent.DATABASE, "Database connection failed")
+    log_with_location(pycallbacklogger.Severity.Debug, MyComponent.UI, "UI redraw event")
+    log_with_location(pycallbacklogger.Severity.Info, MyComponent.DATABASE, "Database query executed")
+    log_with_location(pycallbacklogger.Severity.Info, MyComponent.NETWORK, "Network packet sent")
 
-    logger.log(pycallbacklogger.Severity.Info, PyComponent.S, "test message", "file.cpp", 42)
-
-    print(len(received_entries))
-    assert len(received_entries) == 1
-    assert received_entries[0][2] == "test message"
+    print("\nCheck 'all_logs.log' and 'db_warnings.log' for file output.")
 
 if __name__ == "__main__":
-    logger = pycallbacklogger.CallbackLogger()
-    test_register_function_callback_info_message_received(logger)
-    # Register callbacks for different severities and components using the Python enum
-    logger.register_function_callback(console_callback, pycallbacklogger.Severity.Info)
-    logger.register_function_callback(warning_callback, pycallbacklogger.Severity.Warning)
-    logger.register_function_callback(error_callback, {PyComponent.S: pycallbacklogger.Severity.Error})
-    logger.register_function_callback(debug_callback, {PyComponent.P: pycallbacklogger.Severity.Debug})
-    logger.register_function_callback(all_callback)
-
-    # Register file callbacks using the Python enum
-    logger.register_file_callback('all_logs.log')
-    logger.register_file_callback('component_m_warnings.log', {PyComponent.M: pycallbacklogger.Severity.Warning})
-
-    # Log various messages using the Python enum
-    logger.log(pycallbacklogger.Severity.Info, PyComponent.P, "First info message", getframeinfo(currentframe()).filename, getframeinfo(currentframe()).lineno)
-    logger.log(pycallbacklogger.Severity.Warning, PyComponent.P, "Second warning", getframeinfo(currentframe()).filename, getframeinfo(currentframe()).lineno)
-    logger.log(pycallbacklogger.Severity.Error, PyComponent.P, "Third error", getframeinfo(currentframe()).filename, getframeinfo(currentframe()).lineno)
-    logger.log(pycallbacklogger.Severity.Debug, PyComponent.P, "4 debug", getframeinfo(currentframe()).filename, getframeinfo(currentframe()).lineno)
-
-    logger.log(pycallbacklogger.Severity.Info, PyComponent.P, "fifth info", getframeinfo(currentframe()).filename, getframeinfo(currentframe()).lineno)
-
-    logger.register_function_callback(all_callback)
-
-    logger.log(pycallbacklogger.Severity.Info, PyComponent.P, "sixth info", getframeinfo(currentframe()).filename, getframeinfo(currentframe()).lineno)
-
+    main()

@@ -311,3 +311,6 @@ private:
 
     constexpr static size_t DEFAULT_THREAD_COUNT = 1;
 };
+
+#define LOG(logger, severity, component, message) \
+    logger.log(severity, component, message, __FILE__, __LINE__)
