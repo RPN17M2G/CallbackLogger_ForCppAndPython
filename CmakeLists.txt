@@ -1,0 +1,55 @@
+cmake_minimum_required(VERSION 3.14)
+project(LogInfrastructure LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL" CACHE STRING "" FORCE)
+
+include_directories(include)
+
+file(GLOB_RECURSE SRC_FILES src/*.cpp)
+file(GLOB_RECURSE HEADER_FILES include/*.hpp include/*.h include/*.hh include/*.hxx)
+
+file(GLOB_RECURSE BINDINGS_FILES bindings/*.cpp bindings/*.hpp)
+
+file(GLOB_RECURSE EXAMPLES_FILES Examples/*.cpp)
+
+file(GLOB_RECURSE TEST_SOURCES tests/cpp/*.cpp)
+
+add_subdirectory(thirdparty/pybind11)
+
+add_library(CallbackLogger STATIC ${SRC_FILES} ${HEADER_FILES})
+target_include_directories(CallbackLogger PUBLIC include)
+set_target_properties(CallbackLogger PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+
+pybind11_add_module(pycallbacklogger ${BINDINGS_FILES} ${SRC_FILES})
+target_include_directories(pycallbacklogger PRIVATE include)
+set_target_properties(pycallbacklogger PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+
+install(TARGETS pycallbacklogger
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
+
+foreach(EXAMPLE_FILE ${EXAMPLES_FILES})
+    get_filename_component(EXAMPLE_NAME ${EXAMPLE_FILE} NAME_WE)
+    add_executable(${EXAMPLE_NAME} ${EXAMPLE_FILE})
+    target_link_libraries(${EXAMPLE_NAME} PRIVATE CallbackLogger)
+    target_include_directories(${EXAMPLE_NAME} PRIVATE include)
+endforeach()
+
+option(BUILD_TESTING "Build tests" OFF)
+if(BUILD_TESTING)
+    # Add googletest
+    add_subdirectory(thirdparty/googletest)
+    set_target_properties(gtest PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+    set_target_properties(gtest_main PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+    enable_testing()
+    add_executable(CallbackLoggerTests ${TEST_SOURCES})
+    target_link_libraries(CallbackLoggerTests PRIVATE CallbackLogger gtest gtest_main)
+    target_include_directories(CallbackLoggerTests PRIVATE include)
+    set_target_properties(CallbackLoggerTests PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+    include(GoogleTest)
+    gtest_discover_tests(CallbackLoggerTests)
+endif()
