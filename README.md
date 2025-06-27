@@ -165,7 +165,11 @@ There are system tests for both Python and Cpp.
 
 ### Test Map
 
+There are currently 69 tests in total(Version 1.0.0), distributed as follows:
+
 #### Python Tests
+
+There are currently 30 tests for python - Version 1.0.0
 
 focuses on functionality and integration of the Python API, ensuring that all features work as expected, including:
 - Function and file callbacks
@@ -173,6 +177,8 @@ focuses on functionality and integration of the Python API, ensuring that all fe
 - Filtering by severity and component
 
 #### Cpp Tests
+
+There are currently 39 tests for Cpp - Version 1.0.0
 
 focuses on the core Cpp functionality and especially on the asynchronous logging capabilities, ensuring that:
 - The Cpp API behaves correctly
