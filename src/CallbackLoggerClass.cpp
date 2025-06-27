@@ -35,6 +35,17 @@ uint32_t CallbackLogger::register_function_callback(
     const LogCallback& callback,
     const std::unordered_map<ComponentEnumEntry, Severity, ComponentEnumEntryHasher>& filter)
 {
+    if (!callback)
+    {
+        throw std::invalid_argument("Function callback cannot be null");
+    }
+    for (const auto& pair : filter)
+    {
+        if (pair.second < Severity::Debug || pair.second > Severity::Fatal)
+        {
+            throw std::invalid_argument("Invalid severity in filter map for function callback registration");
+        }
+    }
     std::lock_guard<std::mutex> lock(m_register_mutex);
     uint32_t handle = m_next_callback_handle++;
     m_function_callbacks[handle] = std::make_shared<FunctionCallbackFilter>(
@@ -46,9 +57,13 @@ uint32_t CallbackLogger::register_function_callback(
     const LogCallback& callback,
     const std::set<ComponentEnumEntry>& component_filter)
 {
+    if (!callback)
+    {
+        throw std::invalid_argument("Function callback cannot be null");
+    }
     std::unordered_map<ComponentEnumEntry, Severity, ComponentEnumEntryHasher> filter;
     for (const ComponentEnumEntry& component : component_filter)
-        filter[component] = Severity::Uninitialized;
+        filter[component] = Severity::Debug;
     return register_function_callback(callback, filter);
 }
 
@@ -56,6 +71,14 @@ uint32_t CallbackLogger::register_function_callback(
     const LogCallback& callback,
     const Severity min_severity)
 {
+    if (!callback)
+    {
+        throw std::invalid_argument("Function callback cannot be null");
+    }
+    if (min_severity < Severity::Debug || min_severity > Severity::Fatal)
+    {
+        throw std::invalid_argument("Invalid severity for function callback registration");
+    }
     std::lock_guard<std::mutex> lock(m_register_mutex);
     uint32_t handle = m_next_callback_handle++;
     m_function_callbacks[handle] = std::make_shared<FunctionCallbackFilter>(
@@ -65,14 +88,31 @@ uint32_t CallbackLogger::register_function_callback(
 
 uint32_t CallbackLogger::register_function_callback(const LogCallback& callback, const ComponentEnumEntry component)
 {
-    std::set<ComponentEnumEntry> component_set{component};
-    return register_function_callback(callback, component_set);
+    if (!callback)
+    {
+        throw std::invalid_argument("Function callback cannot be null");
+    }
+    return register_function_callback(callback, std::set<ComponentEnumEntry>{component});
 }
 
 uint32_t CallbackLogger::register_file_callback(
     const std::string& filename,
     const std::unordered_map<ComponentEnumEntry, Severity, ComponentEnumEntryHasher>& filter)
 {
+    std::ofstream file_stream(filename, std::ios::app);
+    if (!file_stream)
+    {
+        throw std::invalid_argument("Invalid log file path: " + filename);
+    }
+
+    for (const std::pair<ComponentEnumEntry, Severity>& pair : filter)
+    {
+        if (pair.second < Severity::Debug || pair.second > Severity::Fatal)
+        {
+            throw std::invalid_argument("Invalid severity in filter map for file callback registration");
+        }
+    }
+
     std::lock_guard<std::mutex> lock(m_register_mutex);
     uint32_t handle = m_next_callback_handle++;
     m_file_callbacks[handle] = std::make_shared<FileCallBackFilter>(
@@ -86,7 +126,7 @@ uint32_t CallbackLogger::register_file_callback(
 {
     std::unordered_map<ComponentEnumEntry, Severity, ComponentEnumEntryHasher> filter;
     for (const ComponentEnumEntry& component : component_filter)
-        filter[component] = Severity::Uninitialized;
+        filter[component] = Severity::Debug;
     return register_file_callback(filename, filter);
 }
 
@@ -94,6 +134,10 @@ uint32_t CallbackLogger::register_file_callback(
     const std::string& filename,
     const Severity min_severity)
 {
+    if (min_severity < Severity::Debug || min_severity > Severity::Fatal)
+    {
+        throw std::invalid_argument("Invalid severity for file callback registration");
+    }
     std::lock_guard<std::mutex> lock(m_register_mutex);
     uint32_t handle = m_next_callback_handle++;
     m_file_callbacks[handle] = std::make_shared<FileCallBackFilter>(
@@ -103,8 +147,11 @@ uint32_t CallbackLogger::register_file_callback(
 
 uint32_t CallbackLogger::register_file_callback(const std::string& filename, const ComponentEnumEntry component)
 {
-    std::set<ComponentEnumEntry> component_set{component};
-    return register_file_callback(filename, component_set);
+    if (filename.empty())
+    {
+        throw std::invalid_argument("Filename for file callback cannot be empty");
+    }
+    return register_file_callback(filename, std::set<ComponentEnumEntry>{component});
 }
 
 void CallbackLogger::unregister_function_callback(uint32_t handle)
@@ -130,6 +177,23 @@ void CallbackLogger::unregister_file_callback(uint32_t handle)
 void CallbackLogger::log(const Severity severity, const ComponentEnumEntry& component, const std::string& message,
                          const std::string& file, const uint32_t line)
 {
+    if (message.empty())
+    {
+        throw std::runtime_error("Cannot log an empty message");
+    }
+    if (file.empty())
+    {
+        throw std::runtime_error("Cannot log without a file name");
+    }
+    if (line <= 0)
+    {
+        throw std::runtime_error("Cannot log without a line number");
+    }
+    if (severity < Severity::Debug || severity > Severity::Fatal)
+    {
+        throw std::runtime_error("Invalid severity level: " + std::to_string(static_cast<int>(severity)));
+    }
+
     const LogEntry entry{severity, component, message, file, line, _get_current_timestamp()};
     if (m_single_threaded)
     {
@@ -187,7 +251,8 @@ void CallbackLogger::_async_log(const LogEntry& entry)
         {
             if (_is_matching_callback_filter(callback->filter, entry.severity, entry.component))
             {
-                m_task_queue.emplace([callback, entry]() {
+                m_task_queue.emplace([callback, entry]()
+{
                     callback->callback_function(entry);
                 });
             }
@@ -239,7 +304,8 @@ void CallbackLogger::_single_threaded_log(const LogEntry& entry)
 
 void CallbackLogger::_worker_thread()
 {
-    while (true) {
+    while (true)
+{
         Task task;
         {
             std::unique_lock<std::mutex> lock(m_queue_mutex);

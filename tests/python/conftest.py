@@ -11,12 +11,14 @@ def logger():
     yield logger_instance
     del logger_instance
 
+
+class _PyComponent(Enum):
+    S = 0
+    M = 1
+    P = 2
+
 @pytest.fixture
 def PyComponent():
-    class _PyComponent(Enum):
-        S = 0
-        M = 1
-        P = 2
     return _PyComponent
 
 @pytest.fixture

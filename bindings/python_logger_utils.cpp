@@ -8,7 +8,7 @@ namespace py = pybind11;
 class PyCallbackLogger : public CallbackLogger
 {
 public:
-    PyCallbackLogger() : CallbackLogger(0) // Always single-threaded for Python because of GIL(Global Interpreter Lock)
+    PyCallbackLogger() : CallbackLogger(0)
     {
         py::object self = py::cast(this);
     }
@@ -22,52 +22,102 @@ namespace {
 /// @param logger The logger instance.
 /// @param safe_callback The callback to register.
 /// @param filter The Python filter object.
-/// @param register_func The logger registration function (member pointer or lambda).
+/// @param register_function The logger registration function (member pointer or lambda).
 /// @return The callback handle.
 template <typename RegisterFunc>
 uint32_t handle_register_callback(
         CallbackLogger& logger,
         const LogCallback& safe_callback,
         py::object filter,
-        RegisterFunc register_func)
+        RegisterFunc register_function)
+{
+    if (py::isinstance<py::dict>(filter))
     {
-        if (py::isinstance<py::dict>(filter))
+        std::unordered_map<ComponentEnumEntry, Severity, ComponentEnumEntryHasher> native_filter;
+        for (std::pair<pybind11::handle, pybind11::handle> item : filter.cast<py::dict>())
         {
-            std::unordered_map<ComponentEnumEntry, Severity, ComponentEnumEntryHasher> native_filter;
-            for (std::pair<pybind11::handle, pybind11::handle> item : filter.cast<py::dict>())
-            {
-                ComponentEnumEntry entry = py_enum_to_entry(static_cast<const py::object &>(item.first));
-                native_filter[entry] = item.second.cast<Severity>();
-            }
-            return register_func(native_filter);
+            ComponentEnumEntry entry = py_enum_to_entry(static_cast<const py::object &>(item.first));
+            native_filter[entry] = item.second.cast<Severity>();
         }
-        else if (py::isinstance<py::set>(filter))
+        return register_function(native_filter);
+    }
+    else if (py::isinstance<py::set>(filter))
+    {
+        std::set<ComponentEnumEntry> native_set;
+        py::iterable iterable = filter;
+        for (pybind11::handle item : iterable)
+        {
+            native_set.insert(py_enum_to_entry(py::reinterpret_borrow<py::object>(item)));
+        }
+        std::unordered_map<ComponentEnumEntry, Severity, ComponentEnumEntryHasher> native_filter;
+        for (const ComponentEnumEntry& entry : native_set)
+        {
+            native_filter[entry] = Severity::Debug;
+        }
+        return register_function(native_filter);
+    }
+    else if (py::isinstance<py::list>(filter))
+    {
+        py::list pylist = filter;
+        if (pylist.size() == 0)
+            throw std::runtime_error("Empty list is not a valid filter");
+        py::object first = pylist[0];
+        if (py::hasattr(first, "value") && !py::isinstance<Severity>(first)) // Is component
         {
             std::set<ComponentEnumEntry> native_set;
-            for (pybind11::handle item : filter.cast<py::set>())
+            for (pybind11::handle item : pylist)
             {
                 native_set.insert(py_enum_to_entry(py::reinterpret_borrow<py::object>(item)));
             }
-            return register_func(native_set);
-        }
-        else if (py::isinstance<Severity>(filter))
-        {
-            return register_func(filter.cast<Severity>());
-        }
-        else if (py::hasattr(filter, "value"))
-        {
-            ComponentEnumEntry entry = py_enum_to_entry(filter);
-            return register_func(entry);
-        }
-        else if (filter.is_none())
-        {
-            return register_func(Severity::Uninitialized);
+            std::unordered_map<ComponentEnumEntry, Severity, ComponentEnumEntryHasher> native_filter;
+            for (const auto& entry : native_set)
+            {
+                native_filter[entry] = Severity::Info;
+            }
+            return register_function(native_filter);
         }
         else
         {
-            throw std::runtime_error("Unsupported filter type for register callback");
+            throw std::runtime_error("Unsupported list filter type for register callback");
         }
     }
+    else if (py::isinstance<Severity>(filter))
+    {
+        return register_function(filter.cast<Severity>());
+    }
+    else if (py::hasattr(filter, "value"))
+    {
+        try {
+            if (!py::isinstance<Severity>(filter))
+            {
+                ComponentEnumEntry entry = py_enum_to_entry(filter);
+                std::set<ComponentEnumEntry> native_set{entry};
+                std::unordered_map<ComponentEnumEntry, Severity, ComponentEnumEntryHasher> native_filter;
+                native_filter[entry] = Severity::Info;
+                return register_function(native_filter);
+            }
+            else
+            {
+                return register_function(filter.cast<Severity>());
+            }
+        } catch (...) {
+            try {
+                Severity sev = filter.cast<Severity>();
+                return register_function(sev);
+            } catch (...) {
+                throw std::runtime_error("Unsupported filter type for register callback (enum with .value)");
+            }
+        }
+    }
+    else if (filter.is_none())
+    {
+        return register_function(Severity::Info);
+    }
+    else
+    {
+        throw std::runtime_error("Unsupported filter type for register callback");
+    }
+}
 
 }
 
