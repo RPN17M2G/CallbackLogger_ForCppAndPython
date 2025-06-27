@@ -1,93 +1,209 @@
-# Log_infrastructure 
+# CallbackLogger
 
+A high-performance, flexible callback based logging infrastructure for Cpp and Python, supporting:
+- Asynchronous and synchronous logging
+- Custom log components (enums)
+- Advanced filtering by severity and component
+- Multiple callback types (function, file)
+- Python bindings via [pybind11](https://github.com/pybind/pybind11)
+- Thread-safe, scalable design
 
+---
 
-## Getting started
+## Features
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+- **Register multiple callbacks**: Log to files, functions, or both.
+- **Filter by severity and component**: Only receive the logs you care about.
+- **Custom components**: Use your own enums for log sources.  
+  The logger automatically maps and tracks any enum type and value you use as a component, so you can freely use multiple different enums (even at the same time) without any registration or configuration. Each enum's type and value are stored and distinguished internally, ensuring correct filtering and routing for all your log sources.
+- **Async or single-threaded**: Choose your performance model.
+- **Python and Cpp support**: Use the same logger in both languages - Perfect for multi-languages systems.
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
-
-```
-cd existing_repo
-git remote add origin https://gitlab.com/omer.gindi5/log_infrastructure.git
-git branch -M main
-git push -uf origin main
-```
-
-## Integrate with your tools
-
-- [ ] [Set up project integrations](https://gitlab.com/omer.gindi5/log_infrastructure/-/settings/integrations)
-
-## Collaborate with your team
-
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
-
-## Test and Deploy
-
-Use the built-in continuous integration in GitLab.
-
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+---
 
 ## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+
+### Python
+
+```bash
+pip install .
+```
+
+or (for editable/development mode):
+
+```bash
+pip install -e .
+```
+
+### Cpp
+
+Add the library to your CMake project:
+
+```cmake
+add_subdirectory(CallbackLogger_ForCppAndPython)
+target_link_libraries(your_target PRIVATE CallbackLogger)
+```
+
+---
 
 ## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+### Python Example
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+```python
+import pycallbacklogger
+from enum import Enum
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+class MyComponent(Enum):
+    NETWORK = 0
+    DATABASE = 1
+    UI = 2
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+def print_callback(entry):
+    print(f"[{entry.timestamp}] [{entry.severity.name}] {entry.component.name}: {entry.message}")
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+logger = pycallbacklogger.CallbackLogger()
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+# Register callbacks
+logger.register_function_callback(print_callback, pycallbacklogger.Severity.Info)
+logger.register_file_callback('all_logs.log')
+logger.register_function_callback(print_callback, {MyComponent.DATABASE: pycallbacklogger.Severity.Error})
+
+# Log messages
+logger.log(pycallbacklogger.Severity.Info, MyComponent.NETWORK, "Network initialized", __file__, 10)
+logger.log(pycallbacklogger.Severity.Error, MyComponent.DATABASE, "Database error!", __file__, 12)
+```
+
+### Cpp Example
+
+```cpp
+#include "CallbackLogger.hpp"
+#include <iostream>
+
+enum class MyComponent { NETWORK, DATABASE, UI };
+
+int main() {
+    CallbackLogger logger(1);
+
+    logger.register_function_callback(
+        [](const LogEntry& entry) {
+            std::cout << "[" << to_string(entry.severity) << "] "
+                      << entry.component.to_string() << ": "
+                      << entry.message << std::endl;
+        },
+        Severity::Info
+    );
+
+    logger.register_file_callback("all_logs_cpp.log", Severity::Debug);
+
+    logger.log(Severity::Info, make_component_entry(MyComponent::NETWORK), "Network initialized", __FILE__, __LINE__);
+    logger.log(Severity::Error, make_component_entry(MyComponent::DATABASE), "Database error!", __FILE__, __LINE__);
+}
+```
+
+---
+
+## API Overview
+
+### Python
+
+- `CallbackLogger()`: Create a logger instance.
+- `register_function_callback(callback, filter)`: Register a Python function as a log callback. `filter` can be a severity, set/list of components, or a dict mapping components to severities.
+- `register_file_callback(filename, filter)`: Log to a file. `filter` as above.
+- `unregister_function_callback(handle)`: Remove a function callback.
+- `unregister_file_callback(handle)`: Remove a file callback.
+- `log(severity, component, message, file, line)`: Log a message.
+
+### Cpp
+
+- `CallbackLogger(size_t thread_count)`: Create a logger (0 = single-threaded).
+- `register_function_callback(function, filter)`: Register a function callback.
+- `register_file_callback(filename, filter)`: Register a file callback.
+- `unregister_function_callback(handle)`, `unregister_file_callback(handle)`: Remove callbacks.
+- `log(severity, component, message, file, line)`: Log a message.
+
+---
+
+## Technology
+
+Python integration: Pybind11
+Cpp version: 17
+Python version: 3.7+
+Python testing: Pytest
+Cpp testing: Google Test (gtest)
+Build system: CMake
+
+### Component System Architecture
+Log components are abstracted via the ComponentEnumEntry class, which encapsulates both the enum type (using std::type_index for Cpp enums or std::string for dynamic types) and its value. 
+This enables type-safe, runtime-agnostic component identification without explicit registration or compile-time knowledge of all possible enums. 
+The logger leverages this abstraction to support heterogeneous component enums in a single logging instance.
+
+
+### Multi-Enum Handling
+The logger's core is built around the generic ComponentEnumEntry, allowing seamless integration of multiple, unrelated enum types.
+At runtime, the logger introspects the enum type via typeid and stores it alongside the value, ensuring that log entries are always associated with their precise component type.
+This mechanism supports advanced use cases such as dynamic extension of component sets without code changes to the logger itself.
+
+### Thread Safety and Concurrency
+The logger is designed for high-concurrency environments.
+It uses mutexes and atomic operations to synchronize access to internal data structures, such as callback registries and log queues.
+Log entries are processed asynchronously, enabling non-blocking logging from multiple threads.
+This architecture ensures deterministic delivery order and prevents race conditions, even under heavy parallel workloads.
+
+
+### Additional Features
+Dynamic Callback Registration: Supports runtime registration and deregistration of function and file callbacks, each with customizable severity and component filters (including per-component severity maps).
+Asynchronous Processing: Log entries are queued and processed by a configurable thread pool, minimizing logging overhead on application threads.
+Flexible Filtering: Callbacks can be filtered by severity, component, a set of components, or a map of component-to-severity, enabling fine-grained control over log routing.
+Exception Safety: All callback invocations are exception-safe; exceptions thrown by user callbacks are caught and do not disrupt the logging pipeline.
+Extensible Component Model: New component enums can be introduced at any time without modifying the logger, thanks to the type-erased ComponentEnumEntry abstraction.
+File Logging: File callbacks append log entries to disk with severity-based formatting, and handle file I/O errors.
+
+## Testing
+
+There are system tests for both Python and Cpp.
+
+### Test Map
+
+#### Python Tests
+
+focuses on functionality and integration of the Python API, ensuring that all features work as expected, including:
+- Function and file callbacks
+- Custom component handling
+- Filtering by severity and component
+
+#### Cpp Tests
+
+focuses on the core Cpp functionality and especially on the asynchronous logging capabilities, ensuring that:
+- The Cpp API behaves correctly
+- Asynchronous logging works as expected
+- Thread safety is maintained
+- Custom components are handled correctly
+- Filtering and routing of log messages are correct
+
+
+
+### Running Tests
+
+- **Python:**  
+  Run all tests with:
+  ```bash
+  pytest
+  ```
+
+- **Cpp:**  
+  Enable tests in CMake (`-DBUILD_TESTING=ON`) and run with your test runner.
+
+---
 
 ## License
-For open source projects, say how it is licensed.
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+MIT License
+
+---
+
+## Author
+
+Omer Gindi
+
+---
