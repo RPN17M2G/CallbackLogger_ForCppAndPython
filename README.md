@@ -8,7 +8,7 @@ A high-performance, flexible callback based logging infrastructure for Cpp and P
 - Python bindings via [pybind11](https://github.com/pybind/pybind11)
 - Thread-safe, scalable design
 
----
+
 
 ## Features
 
@@ -19,7 +19,7 @@ A high-performance, flexible callback based logging infrastructure for Cpp and P
 - **Async or single-threaded**: Choose your performance model.
 - **Python and Cpp support**: Use the same logger in both languages - Perfect for multi-languages systems.
 
----
+
 
 ## Installation
 
@@ -44,7 +44,7 @@ add_subdirectory(CallbackLogger_ForCppAndPython)
 target_link_libraries(your_target PRIVATE CallbackLogger)
 ```
 
----
+
 
 ## Usage
 
@@ -101,7 +101,7 @@ int main() {
 }
 ```
 
----
+
 
 ## API Overview
 
@@ -122,29 +122,34 @@ int main() {
 - `unregister_function_callback(handle)`, `unregister_file_callback(handle)`: Remove callbacks.
 - `log(severity, component, message, file, line)`: Log a message.
 
----
+
 
 ## Technology
 
-Python integration: Pybind11
-Cpp version: 17
-Python version: 3.7+
-Python testing: Pytest
-Cpp testing: Google Test (gtest)
-Build system: CMake
+- Python integration: Pybind11
+- Cpp version: 17
+- Python version: 3.7+
+- Python testing: Pytest
+- Cpp testing: Google Test (gtest)
+- Build system: CMake
+
 
 ### Component System Architecture
+
 Log components are abstracted via the ComponentEnumEntry class, which encapsulates both the enum type (using std::type_index for Cpp enums or std::string for dynamic types) and its value. 
 This enables type-safe, runtime-agnostic component identification without explicit registration or compile-time knowledge of all possible enums. 
 The logger leverages this abstraction to support heterogeneous component enums in a single logging instance.
 
 
 ### Multi-Enum Handling
+
 The logger's core is built around the generic ComponentEnumEntry, allowing seamless integration of multiple, unrelated enum types.
 At runtime, the logger introspects the enum type via typeid and stores it alongside the value, ensuring that log entries are always associated with their precise component type.
 This mechanism supports advanced use cases such as dynamic extension of component sets without code changes to the logger itself.
 
+
 ### Thread Safety and Concurrency
+
 The logger is designed for high-concurrency environments.
 It uses mutexes and atomic operations to synchronize access to internal data structures, such as callback registries and log queues.
 Log entries are processed asynchronously, enabling non-blocking logging from multiple threads.
@@ -159,15 +164,20 @@ Exception Safety: All callback invocations are exception-safe; exceptions thrown
 Extensible Component Model: New component enums can be introduced at any time without modifying the logger, thanks to the type-erased ComponentEnumEntry abstraction.
 File Logging: File callbacks append log entries to disk with severity-based formatting, and handle file I/O errors.
 
+
 ## Testing
 
 There are system tests for both Python and Cpp.
 
+
 ### Test Map
+
 
 There are currently 69 tests in total(Version 1.0.0), distributed as follows:
 
+
 #### Python Tests
+
 
 There are currently 30 tests for python - Version 1.0.0
 
@@ -178,6 +188,7 @@ focuses on functionality and integration of the Python API, ensuring that all fe
 
 #### Cpp Tests
 
+
 There are currently 39 tests for Cpp - Version 1.0.0
 
 focuses on the core Cpp functionality and especially on the asynchronous logging capabilities, ensuring that:
@@ -186,7 +197,6 @@ focuses on the core Cpp functionality and especially on the asynchronous logging
 - Thread safety is maintained
 - Custom components are handled correctly
 - Filtering and routing of log messages are correct
-
 
 
 ### Running Tests
@@ -200,16 +210,15 @@ focuses on the core Cpp functionality and especially on the asynchronous logging
 - **Cpp:**  
   Enable tests in CMake (`-DBUILD_TESTING=ON`) and run with your test runner.
 
----
+
 
 ## License
 
 MIT License
 
----
+
 
 ## Author
 
 Omer Gindi
 
----
