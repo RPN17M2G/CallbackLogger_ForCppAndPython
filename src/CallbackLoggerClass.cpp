@@ -13,6 +13,7 @@ CallbackLogger::CallbackLogger(size_t thread_count)
             m_workers.emplace_back(&CallbackLogger::_worker_thread, this);
     }
     m_stopping = false;
+
 }
 
 CallbackLogger::~CallbackLogger()
@@ -305,7 +306,7 @@ void CallbackLogger::_single_threaded_log(const LogEntry& entry)
 void CallbackLogger::_worker_thread()
 {
     while (true)
-{
+    {
         Task task;
         {
             std::unique_lock<std::mutex> lock(m_queue_mutex);

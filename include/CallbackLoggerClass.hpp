@@ -35,7 +35,10 @@ public:
     /**
      * @brief Destructor. Stops all worker threads and cleans up resources.
      */
-    ~CallbackLogger();
+    virtual ~CallbackLogger();
+
+    CallbackLogger(CallbackLogger& other) = delete;
+    CallbackLogger& operator=(const CallbackLogger& other) = delete;
 
     /**
      * @brief Stops all worker threads and cleans up resources.
