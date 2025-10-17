@@ -309,3 +309,5 @@ private:
 
 #define LOG(logger, severity, component, message) \
     logger.log(severity, component, message, __FILE__, __LINE__)
+
+using CallbackLoggerPtr = std::shared_ptr<CallbackLogger>;
