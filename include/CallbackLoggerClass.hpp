@@ -9,9 +9,7 @@
 #include <vector>
 #include <functional>
 #include <memory>
-#include <iomanip>
 #include <iostream>
-#include <chrono>
 
 #include "Utils/SeverityUtils.hpp"
 #include "Models/CallbackFilters.hpp"
@@ -19,6 +17,7 @@
 #include "Models/LogEntry.hpp"
 #include "Models/ComponentEnumEntry.hpp"
 #include "Models/Severity.hpp"
+#include "Utils/TimeUtils.hpp"
 
 using Task = std::function<void()>;
 
@@ -272,13 +271,6 @@ private:
     bool _is_matching_callback_filter(
         const std::variant<std::unordered_map<ComponentEnumEntry, Severity, ComponentEnumEntryHasher>, Severity>& filter,
         const Severity severity, const ComponentEnumEntry component) const;
-
-    /**
-     * @brief Gets the current timestamp as a string.
-     *
-     * @return The current timestamp.
-     */
-    std::string _get_current_timestamp() const;
 
     /**
      * @brief Worker thread function that processes log tasks from the queue.
